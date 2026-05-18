@@ -1,0 +1,11 @@
+# next
+.next
+out
+build
+next-env.d.ts.bak
+
+# env
+.env*.local
+
+# vercel
+.vercel
