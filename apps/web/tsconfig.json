@@ -1,13 +1,33 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@gym-planner/core": ["../../packages/core/src"],
-      "@gym-planner/core/*": ["../../packages/core/src/*"]
-    }
+      "@/*": [
+        "./*"
+      ],
+      "@gym-planner/core": [
+        "../../packages/core/src"
+      ],
+      "@gym-planner/core/*": [
+        "../../packages/core/src/*"
+      ]
+    },
+    "allowJs": true,
+    "noEmit": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules", ".next"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next"
+  ]
 }
