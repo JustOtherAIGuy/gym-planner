@@ -75,7 +75,7 @@ forecast math, the number updates on save.
 4. Copy `.env.example` → `apps/web/.env.local` and fill in:
    ```
    NEXT_PUBLIC_SUPABASE_URL=...
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=...
    ```
 5. Generate TS types from the live DB:
    ```bash
@@ -105,19 +105,40 @@ Once deployed:
 
 PWA shell (Serwist service worker, manifest, icons) lands in a later session.
 
-## v0 next steps (in order)
+## v0 next steps (in order — reshaped by 3-persona review, 2026-07-01)
 
-- [ ] Supabase project + apply migration + seed
-- [ ] Supabase client in `packages/supabase` (typed)
-- [ ] Magic-link auth screen
-- [ ] TanStack Query provider + IndexedDB persistence
-- [ ] Programs list / detail / manual builder UI
-- [ ] Forecast targets builder (baseline + 3mo + 6mo per exercise)
-- [ ] Session runner (live set logger with big tap targets)
-- [ ] Body weight quick-log
-- [ ] Wake Lock hook (`useWakeLock`) during sessions
+The persona review moved three things: the session runner is the centerpiece
+(pre-filled forecast weights, not just a logger), a thin manual circuit slice
+ships in v0 (it was deferred; it's one of the three core pillars), and the
+forecast-vs-actual chart ships in v0 (forecasting without the payoff chart is
+data entry).
+
+- [x] Supabase client (`@supabase/ssr`) + magic-link auth + route middleware
+- [ ] Apply migration + seed to the Supabase project (SQL editor or CLI)
+- [ ] App shell: bottom tab nav (Home / Programs / Circuits / Progress)
+- [ ] Home: Today card (next day + forecast-prescribed top sets), key-lift
+      on/off-track strip, body-weight quick-add + sparkline
+- [ ] Programs: list / create / day builder (exercise search, set×rep steppers)
+- [ ] Forecast builder: baseline as weight×reps (auto-e1RM), 12w/24w targets,
+      ramp preview chart
+- [ ] Session runner: sets pre-filled from forecast curve (fallback: last
+      session), one-tap logging, auto rest timer, "last session" inline,
+      wake lock, local buffer so a dead zone can't lose a set
+- [ ] Circuits v0 (manual): builder → versioned spec, full-screen player
+      (huge countdown, work/rest colors, auto-advance, transition seconds),
+      15-second post-workout confirm-log
+- [ ] Progress: per-exercise forecast-vs-actual e1RM chart (best non-warmup
+      set ≤10 reps, one point/session) with on/off-track badge; body-weight
+      trend (raw dots + 7-day average)
 - [ ] PWA shell (Serwist, manifest, icons)
 - [ ] Deploy to Vercel + install on iPhone
+
+## v0.5 (right after)
+
+- [ ] AI circuit generation + "make it harder" edits (Claude API against
+      `CircuitSpecV1`, validated with auto-repair retry)
+- [ ] AI chart requests (chart-spec JSON → the same SVG renderer)
+- [ ] TanStack Query + IndexedDB persistence for real offline
 
 ## Forecast math notes
 

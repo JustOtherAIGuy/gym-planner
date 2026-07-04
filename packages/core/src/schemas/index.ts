@@ -16,6 +16,43 @@ export const SessionSource = z.enum([
   "freestyle",
 ]);
 export const CircuitSource = z.enum(["ai", "manual"]);
+export const Modality = z.enum(["strength", "cardio", "station"]);
+export const CardioKind = z.enum([
+  "run",
+  "row",
+  "ski",
+  "bike",
+  "sled_push",
+  "sled_pull",
+  "burpee_broad_jump",
+  "farmers_carry",
+  "sandbag_lunge",
+]);
+export const CardioStyle = z.enum([
+  "easy",
+  "intervals",
+  "long",
+  "race_pace",
+  "run_walk",
+  "test",
+]);
+export const MetricKey = z.enum([
+  "bodyweight",
+  "run_5k_sec",
+  "weekly_run_km",
+  "protein_g",
+  "fat_g",
+  "calories_rest",
+  "calories_training",
+  "steps",
+]);
+export const RaceDivision = z.enum(["open", "pro", "doubles", "relay"]);
+export const RaceStatus = z.enum([
+  "waitlist",
+  "registered",
+  "backup",
+  "completed",
+]);
 
 // ─── profiles ────────────────────────────────────────────────────────────────
 export const Profile = z.object({
@@ -47,6 +84,107 @@ export const Exercise = z.object({
   primary_muscle: z.string().min(1).max(32),
   equipment: z.string().min(1).max(32),
   is_compound: z.boolean(),
+  modality: Modality.default("strength"),
+});
+
+// ─── daily_logs ──────────────────────────────────────────────────────────────
+export const DailyLog = z.object({
+  id: Uuid,
+  user_id: Uuid,
+  logged_at: DateOnly,
+  calories: z.number().int().min(0).max(10000).nullable(),
+  protein_g: z.number().int().min(0).max(500).nullable(),
+  fat_g: z.number().int().min(0).max(500).nullable(),
+  steps: z.number().int().min(0).max(100000).nullable(),
+});
+
+export const InsertDailyLog = DailyLog.omit({ id: true, user_id: true });
+
+// ─── cardio_logs ─────────────────────────────────────────────────────────────
+export const CardioLog = z.object({
+  id: Uuid,
+  user_id: Uuid,
+  session_id: Uuid.nullable(),
+  exercise_id: Uuid.nullable(),
+  kind: CardioKind,
+  style: CardioStyle.nullable(),
+  distance_m: z.number().int().min(0).max(100000).nullable(),
+  duration_sec: z.number().int().min(0).max(36000).nullable(),
+  load_kg: z.number().min(0).max(500).nullable(),
+  reps: z.number().int().min(0).max(500).nullable(),
+  order_index: z.number().int().nonnegative().nullable(),
+  set_index: z.number().int().nonnegative().nullable(),
+  logged_at: IsoTimestamp,
+  note: z.string().max(280).nullable(),
+});
+
+export const InsertCardioLog = CardioLog.omit({ id: true, user_id: true });
+
+// ─── metric_targets ──────────────────────────────────────────────────────────
+// Trajectory metrics use baseline + anchor jsonb; band metrics use low/high.
+export const MetricAnchor = z.object({
+  at_weeks: z.number().int().min(1).max(520),
+  value: z.number().min(0),
+});
+
+export const MetricTarget = z.object({
+  id: Uuid,
+  user_id: Uuid,
+  metric: MetricKey,
+  baseline_value: z.number().min(0).nullable(),
+  baseline_date: DateOnly.nullable(),
+  targets: z.array(MetricAnchor).min(1).max(8).nullable(),
+  target_low: z.number().min(0).nullable(),
+  target_high: z.number().min(0).nullable(),
+  direction: z.enum(["asc", "desc"]).default("desc"),
+});
+
+// ─── program_phases ──────────────────────────────────────────────────────────
+export const ProgramPhase = z.object({
+  id: Uuid,
+  program_id: Uuid,
+  phase_index: z.number().int().nonnegative(),
+  name: z.string().min(1).max(64),
+  focus: z.string().max(280).nullable(),
+  start_date: DateOnly,
+  end_date: DateOnly,
+});
+
+// ─── races + race_splits ─────────────────────────────────────────────────────
+export const Race = z.object({
+  id: Uuid,
+  user_id: Uuid,
+  name: z.string().min(1).max(96),
+  location: z.string().max(96).nullable(),
+  division: RaceDivision.default("open"),
+  event_date: DateOnly,
+  status: RaceStatus.default("registered"),
+  finish_sec: z.number().int().min(0).max(28800).nullable(),
+  roxzone_sec: z.number().int().min(0).max(7200).nullable(),
+  note: z.string().max(1000).nullable(),
+});
+
+export const RaceSplit = z.object({
+  id: Uuid,
+  race_id: Uuid,
+  leg_index: z.number().int().min(0).max(16),
+  kind: z.enum(["run", "station"]),
+  label: z.string().min(1).max(64),
+  duration_sec: z.number().int().min(0).max(7200),
+  load_kg: z.number().min(0).max(500).nullable(),
+});
+
+// ─── checklist_items ─────────────────────────────────────────────────────────
+export const ChecklistItem = z.object({
+  id: Uuid,
+  user_id: Uuid,
+  slug: z.string().min(1).max(64),
+  label: z.string().min(1).max(96),
+  detail: z.string().max(280).nullable(),
+  target_text: z.string().max(96).nullable(),
+  sort_index: z.number().int().nonnegative().default(0),
+  done: z.boolean().default(false),
+  done_at: IsoTimestamp.nullable(),
 });
 
 // ─── programs ────────────────────────────────────────────────────────────────
@@ -67,6 +205,7 @@ export const ProgramDay = z.object({
   day_index: z.number().int().nonnegative(),
   name: z.string().min(1).max(64),
   rest_day: z.boolean().default(false),
+  phase_id: Uuid.nullable().default(null),
 });
 
 export const ProgramExercise = z.object({
@@ -89,7 +228,7 @@ export const ForecastAnchor = z.object({
 
 export const ForecastTarget = z.object({
   id: Uuid,
-  program_id: Uuid,
+  user_id: Uuid,
   exercise_id: Uuid,
   metric: ForecastMetric,
   baseline_value: z.number().positive().max(500),
@@ -130,6 +269,9 @@ export const SetLog = z.object({
 export const CircuitStationSpecV1 = z.object({
   index: z.number().int().nonnegative(),
   label: z.string().min(1).max(64),
+  // Optional link into the exercise library so circuit history feeds the
+  // same per-movement progression engine as strength sessions.
+  exercise_slug: z.string().min(1).max(64).nullable(),
   // One of: timed (work_sec/rest_sec) OR rep-based (reps)
   work_sec: z.number().int().min(1).max(3600).nullable(),
   rest_sec: z.number().int().min(0).max(3600).nullable(),
@@ -142,6 +284,8 @@ export const CircuitSpecV1 = z.object({
   version: z.literal(1),
   duration_min: z.number().int().min(1).max(180),
   rotations: z.number().int().min(1).max(20),
+  // Seconds to move between stations; keeps the player clock honest.
+  transition_sec: z.number().int().min(0).max(120).default(15),
   partner_mode: z.boolean(),
   stations: z.array(CircuitStationSpecV1).min(1).max(12),
 });
@@ -174,3 +318,15 @@ export type TWorkoutSession = z.infer<typeof WorkoutSession>;
 export type TSetLog = z.infer<typeof SetLog>;
 export type TCircuitWorkout = z.infer<typeof CircuitWorkout>;
 export type TCircuitSpecV1 = z.infer<typeof CircuitSpecV1>;
+export type TModality = z.infer<typeof Modality>;
+export type TDailyLog = z.infer<typeof DailyLog>;
+export type TCardioKind = z.infer<typeof CardioKind>;
+export type TCardioStyle = z.infer<typeof CardioStyle>;
+export type TCardioLog = z.infer<typeof CardioLog>;
+export type TMetricKey = z.infer<typeof MetricKey>;
+export type TMetricAnchor = z.infer<typeof MetricAnchor>;
+export type TMetricTarget = z.infer<typeof MetricTarget>;
+export type TProgramPhase = z.infer<typeof ProgramPhase>;
+export type TRace = z.infer<typeof Race>;
+export type TRaceSplit = z.infer<typeof RaceSplit>;
+export type TChecklistItem = z.infer<typeof ChecklistItem>;

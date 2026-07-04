@@ -9,10 +9,8 @@ build
 out
 *.tsbuildinfo
 
-# env
-.env
-.env.local
-.env.*.local
+# env — ignore all env files except the committed template
+.env*
 !.env.example
 
 # logs
@@ -37,3 +35,6 @@ coverage
 # supabase
 supabase/.branches
 supabase/.temp
+
+# vercel
+.vercel

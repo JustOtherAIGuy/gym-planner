@@ -43,7 +43,9 @@ create table public.body_weight_logs (
   user_id    uuid not null references auth.users(id) on delete cascade,
   logged_at  date not null,
   weight_kg  numeric(6,2) not null check (weight_kg > 0 and weight_kg <= 500),
-  note       text
+  note       text,
+  -- One entry per day: logging twice the same day edits, never duplicates.
+  unique (user_id, logged_at)
 );
 
 create index body_weight_logs_user_date_idx
@@ -143,11 +145,13 @@ create policy "own program_exercises" on public.program_exercises
   );
 
 -- =============================================================================
--- forecast_targets (per-exercise per-program; v0 supports metric='1rm' only)
+-- forecast_targets (per-user per-exercise; v0 supports metric='1rm' only)
+-- Keyed to the user, not a program, so the forecast line survives program
+-- switches and archives without fragmenting chart history.
 -- =============================================================================
 create table public.forecast_targets (
   id             uuid primary key default gen_random_uuid(),
-  program_id     uuid not null references public.programs(id) on delete cascade,
+  user_id        uuid not null references auth.users(id) on delete cascade,
   exercise_id    uuid not null references public.exercises(id),
   metric         text not null default '1rm'
                  check (metric in ('1rm','top_set_weight','volume')),
@@ -156,16 +160,12 @@ create table public.forecast_targets (
   targets        jsonb not null,
   curve          text not null default 'linear'
                  check (curve in ('linear','log','stepped')),
-  unique (program_id, exercise_id, metric)
+  unique (user_id, exercise_id, metric)
 );
 
 alter table public.forecast_targets enable row level security;
 create policy "own forecasts" on public.forecast_targets
-  for all using (
-    exists (select 1 from public.programs p where p.id = program_id and p.user_id = auth.uid())
-  ) with check (
-    exists (select 1 from public.programs p where p.id = program_id and p.user_id = auth.uid())
-  );
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
 -- =============================================================================
 -- workout_sessions + set_logs

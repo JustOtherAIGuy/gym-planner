@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Overload app icon: volt forecast line rising up-and-right, dot at the
+       end. Glyph stays inside the central 80% so the maskable variant is
+       safe. -->
+  <rect width="512" height="512" rx="116" fill="#050505"/>
+  <circle cx="384" cy="176" r="72" fill="#BFFF38" opacity="0.14"/>
+  <polyline points="116,356 226,290 278,322 384,182"
+            fill="none" stroke="#BFFF38" stroke-width="42"
+            stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="384" cy="176" r="30" fill="#BFFF38"/>
+</svg>
