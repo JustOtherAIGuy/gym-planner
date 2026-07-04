@@ -26,6 +26,7 @@ import {
 } from "../../lib/data";
 import { DayPickerSheet } from "../../components/DayPickerSheet";
 import { ConfirmSheet } from "../../components/ConfirmSheet";
+import { MovementChip } from "../../components/pictograms/MovementChip";
 import { NumberStepper } from "../../components/NumberStepper";
 import { LineChart } from "../../components/LineChart";
 import { Button } from "../../components/Button";
@@ -336,9 +337,15 @@ export default function Home() {
                   return (
                     <li
                       key={pe.id}
-                      className="flex items-center justify-between"
+                      className="flex items-center justify-between gap-2"
                     >
-                      <span className="text-muted">{pe.exercises.name}</span>
+                      <span className="flex min-w-0 items-center gap-2 text-muted">
+                        <MovementChip
+                          slug={pe.exercises.slug}
+                          modality={pe.exercises.modality}
+                        />
+                        <span className="truncate">{pe.exercises.name}</span>
+                      </span>
                       <span className="flex items-center gap-2 tabular-nums">
                         <span className="text-faint">
                           {pe.target_sets}×{pe.target_reps_low}–

@@ -3,7 +3,12 @@
 import { useRouter } from "next/navigation";
 import { use, useCallback, useEffect, useMemo, useState } from "react";
 import { Check, Trash2 } from "lucide-react";
-import { formatPace, paceSecPerKm } from "@gym-planner/core/hyrox";
+import {
+  barRamp,
+  classifyWarmupDay,
+  formatPace,
+  paceSecPerKm,
+} from "@gym-planner/core/hyrox";
 import type { TCardioKind, TCardioStyle } from "@gym-planner/core/schemas";
 import { createClient } from "../../../../lib/supabase/client";
 import { useQuery } from "../../../../lib/useQuery";
@@ -34,11 +39,18 @@ import { Card } from "../../../../components/Card";
 import { SkeletonCard } from "../../../../components/Skeleton";
 import { PageHeader } from "../../../../components/PageHeader";
 import { ConfirmSheet } from "../../../../components/ConfirmSheet";
+import { MovementChip } from "../../../../components/pictograms/MovementChip";
+import {
+  WorkoutComplete,
+  type CompletionStats,
+} from "../../../../components/WorkoutComplete";
+import { WarmupCard } from "../../../../components/WarmupCard";
 
 type Row = {
   key: string;
   exerciseId: string;
   exerciseName: string;
+  exerciseSlug: string;
   orderIndex: number;
   setIndex: number;
   modality: "strength" | "cardio" | "station";
@@ -193,6 +205,7 @@ export default function SessionRunner({
             key: `${pe.id}-${i}`,
             exerciseId: pe.exercise_id,
             exerciseName: pe.exercises.name,
+            exerciseSlug: pe.exercises.slug,
             orderIndex: pe.order_index,
             setIndex: i,
             modality: "strength",
@@ -223,6 +236,7 @@ export default function SessionRunner({
             key: `${pe.id}-${i}`,
             exerciseId: pe.exercise_id,
             exerciseName: pe.exercises.name,
+            exerciseSlug: pe.exercises.slug,
             orderIndex: pe.order_index,
             setIndex: i,
             modality,
@@ -408,6 +422,7 @@ export default function SessionRunner({
   const [confirming, setConfirming] = useState<
     null | "discard" | "empty-finish"
   >(null);
+  const [celebration, setCelebration] = useState<CompletionStats | null>(null);
 
   async function finish() {
     // Finishing with nothing logged would save an empty workout that pollutes
@@ -422,7 +437,24 @@ export default function SessionRunner({
       .from("workout_sessions")
       .update({ ended_at: new Date().toISOString() })
       .eq("id", sessionId);
-    router.push("/");
+    const doneRows = (rows ?? []).filter((r) => r.done);
+    setCelebration({
+      kind: "session",
+      durationMin: session.data
+        ? Math.max(
+            1,
+            Math.round(
+              (Date.now() - Date.parse(session.data.started_at)) / 60000,
+            ),
+          )
+        : 1,
+      sets: doneRows.length,
+      volumeKg: Math.round(
+        doneRows
+          .filter((r) => r.modality === "strength")
+          .reduce((acc, r) => acc + r.weightKg * r.reps, 0),
+      ),
+    });
   }
 
   async function discard() {
@@ -473,6 +505,25 @@ export default function SessionRunner({
   const doneCount = rows?.filter((r) => r.done).length ?? 0;
   const total = rows?.length ?? 0;
 
+  // Warm-up: classify the day from its exercises; ramp off the first lift's
+  // prefilled working weight (forecast Rx → last session, computed above).
+  const warmup = useMemo(() => {
+    if (!day.data || !rows) return null;
+    const dayKind = classifyWarmupDay(
+      day.data.name,
+      day.data.program_exercises.map((pe) => pe.exercises),
+    );
+    const firstLift = rows.find(
+      (r) => r.modality === "strength" && r.weightKg > 0,
+    );
+    return {
+      dayKind,
+      ramp: firstLift ? barRamp(firstLift.weightKg) : [],
+      rampLabel: firstLift?.exerciseName,
+      started: rows.some((r) => r.done),
+    };
+  }, [day.data, rows]);
+
   return (
     <main className="flex flex-col gap-4">
       {/* Sticky header: back + title + progress + finish */}
@@ -506,13 +557,29 @@ export default function SessionRunner({
         </>
       )}
 
+      {warmup && (
+        <WarmupCard
+          dayKind={warmup.dayKind}
+          ramp={warmup.ramp}
+          rampLabel={warmup.rampLabel}
+          startCollapsed={warmup.started}
+        />
+      )}
+
       {grouped.map((sets) => {
         const first = sets[0]!;
         const last = lastByExercise.get(first.exerciseId);
         return (
           <Card key={first.exerciseId} className="p-4">
-            <div className="flex items-baseline justify-between">
-              <h2 className="font-semibold">{first.exerciseName}</h2>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="flex min-w-0 items-center gap-2.5 font-semibold">
+                <MovementChip
+                  slug={first.exerciseSlug}
+                  modality={first.modality}
+                  size="md"
+                />
+                <span className="truncate">{first.exerciseName}</span>
+              </h2>
               {last && (
                 <span className="rounded-md bg-surface-2 px-2 py-0.5 text-[11px] tabular-nums text-muted">
                   last {last}
@@ -668,6 +735,13 @@ export default function SessionRunner({
           cancelLabel="Keep training"
           onConfirm={discard}
           onClose={() => setConfirming(null)}
+        />
+      )}
+
+      {celebration && (
+        <WorkoutComplete
+          stats={celebration}
+          onClose={() => router.push("/")}
         />
       )}
 

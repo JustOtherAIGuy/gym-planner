@@ -6,6 +6,7 @@ import { currentPhase } from "@gym-planner/core/hyrox";
 import type { TProgramPhase } from "@gym-planner/core/schemas";
 import { todayISO, type ProgramDayWithExercises } from "../lib/data";
 import { Sheet } from "./Sheet";
+import { MovementChip } from "./pictograms/MovementChip";
 
 function DayRow({
   day,
@@ -34,8 +35,17 @@ function DayRow({
             </span>
           )}
         </span>
-        <span className="text-xs text-faint">
-          {n} movement{n === 1 ? "" : "s"}
+        <span className="mt-1 flex items-center gap-1.5">
+          {day.program_exercises.slice(0, 4).map((pe) => (
+            <MovementChip
+              key={pe.id}
+              slug={pe.exercises.slug}
+              modality={pe.exercises.modality}
+            />
+          ))}
+          <span className="text-xs text-faint">
+            {n} movement{n === 1 ? "" : "s"}
+          </span>
         </span>
       </span>
       {trained && (

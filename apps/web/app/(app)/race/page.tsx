@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ChevronRight, Flag, MapPin, Plus } from "lucide-react";
+import { ChevronRight, MapPin, Plus } from "lucide-react";
 import {
   FINISH_LADDER,
   formatHMS,
@@ -18,6 +18,9 @@ import { Card, CardLabel } from "../../../components/Card";
 import { SkeletonCard } from "../../../components/Skeleton";
 import { Button } from "../../../components/Button";
 import { RaceFormSheet } from "../../../components/RaceFormSheet";
+import { MovementChip } from "../../../components/pictograms/MovementChip";
+import { RaceCourseStrip } from "../../../components/RaceCourseStrip";
+import { EmptyState } from "../../../components/EmptyState";
 
 const STATUS_STYLE: Record<string, string> = {
   waitlist: "bg-warn/15 text-warn",
@@ -123,6 +126,17 @@ export default function RacePage() {
             </Card>
           )}
 
+          {/* The course */}
+          <Card>
+            <CardLabel>The course</CardLabel>
+            <div className="mt-3">
+              <RaceCourseStrip />
+            </div>
+            <p className="mt-1 text-center text-xs text-faint">
+              8 × 1 km runs · 8 stations · one finish line
+            </p>
+          </Card>
+
           {/* Race list */}
           {(races.data ?? []).length > 0 ? (
             <Card>
@@ -166,12 +180,11 @@ export default function RacePage() {
               </ul>
             </Card>
           ) : (
-            <Card className="text-center">
-              <Flag className="mx-auto h-6 w-6 text-faint" />
-              <p className="mt-2 text-sm text-muted">
-                No races yet — add your first event above.
-              </p>
-            </Card>
+            <EmptyState
+              glyph="run"
+              title="No races yet"
+              hint="Add your first event above and the countdown starts."
+            />
           )}
 
           {adding && (
@@ -202,10 +215,21 @@ export default function RacePage() {
                     return (
                       <tr key={s.station} className="border-t border-line">
                         <td className="px-2.5 py-2">
-                          <p className="font-semibold text-fg">{s.station}</p>
-                          <p className="text-[10px] text-faint">
-                            {s.distance}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <MovementChip
+                              kind={s.cardio_kind}
+                              label={s.station}
+                              modality="station"
+                            />
+                            <div>
+                              <p className="font-semibold text-fg">
+                                {s.station}
+                              </p>
+                              <p className="text-[10px] text-faint">
+                                {s.distance}
+                              </p>
+                            </div>
+                          </div>
                         </td>
                         <td className="px-2 py-2 tabular-nums text-muted">
                           {s.open}

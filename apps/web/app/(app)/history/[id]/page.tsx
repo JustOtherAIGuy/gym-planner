@@ -12,6 +12,7 @@ import { Card, CardLabel } from "../../../../components/Card";
 import { ConfirmSheet } from "../../../../components/ConfirmSheet";
 import { PageHeader } from "../../../../components/PageHeader";
 import { SkeletonCard } from "../../../../components/Skeleton";
+import { MovementChip } from "../../../../components/pictograms/MovementChip";
 
 function DeleteLogButton({ onDelete }: { onDelete: () => Promise<void> }) {
   const [busy, setBusy] = useState(false);
@@ -57,7 +58,11 @@ export default function HistoryDetail({
       }
       byName.get(name)!.push(s);
     }
-    return order.map((name) => ({ name, sets: byName.get(name)! }));
+    return order.map((name) => ({
+      name,
+      slug: byName.get(name)![0]!.exercises.slug,
+      sets: byName.get(name)!,
+    }));
   }, [d]);
 
   const started = d ? new Date(d.session.started_at) : null;
@@ -94,7 +99,10 @@ export default function HistoryDetail({
         <>
           {setGroups.map((g) => (
             <Card key={g.name} className="p-4">
-              <CardLabel>{g.name}</CardLabel>
+              <div className="flex items-center gap-2">
+                <MovementChip slug={g.slug} />
+                <CardLabel>{g.name}</CardLabel>
+              </div>
               <ul className="mt-2 flex flex-col">
                 {g.sets.map((s) => (
                   <li
@@ -143,6 +151,14 @@ export default function HistoryDetail({
                       key={c.id}
                       className="flex items-center gap-2 border-t border-line py-2 first:border-t-0"
                     >
+                      <MovementChip
+                        kind={c.kind}
+                        modality={
+                          c.kind === "run" || c.kind === "row" || c.kind === "ski"
+                            ? "cardio"
+                            : "station"
+                        }
+                      />
                       <span className="flex-1 text-sm tabular-nums">
                         {bits.join(" · ")}
                       </span>
@@ -171,6 +187,7 @@ export default function HistoryDetail({
                     <span className="w-8 text-xs text-faint">
                       R{st.rotation_index + 1}
                     </span>
+                    <MovementChip label={st.exercise_label} modality="station" />
                     <span className="flex-1 text-sm">
                       {st.exercise_label}
                       <span className="text-faint">

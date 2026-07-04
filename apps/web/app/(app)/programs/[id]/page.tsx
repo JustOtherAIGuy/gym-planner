@@ -33,6 +33,7 @@ import { InlineEdit } from "../../../../components/InlineEdit";
 import { NoteSheet } from "../../../../components/NoteSheet";
 import { ConfirmSheet } from "../../../../components/ConfirmSheet";
 import { Sheet } from "../../../../components/Sheet";
+import { MovementChip } from "../../../../components/pictograms/MovementChip";
 
 export default function ProgramDetail({
   params,
@@ -277,12 +278,11 @@ export default function ProgramDetail({
               <li key={pe.id} className="border-t border-line pt-3">
                 <div className="flex items-center justify-between">
                   <p className="flex min-w-0 items-center gap-2 font-medium">
+                    <MovementChip
+                      slug={pe.exercises.slug}
+                      modality={pe.exercises.modality}
+                    />
                     <span className="truncate">{pe.exercises.name}</span>
-                    {pe.exercises.modality !== "strength" && (
-                      <span className="rounded bg-info/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-info">
-                        {pe.exercises.modality}
-                      </span>
-                    )}
                   </p>
                   <div className="flex shrink-0 items-center gap-1">
                     <button

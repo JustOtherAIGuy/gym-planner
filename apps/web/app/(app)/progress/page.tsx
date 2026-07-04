@@ -21,6 +21,8 @@ import { curveByKind } from "@gym-planner/core/forecast";
 import {
   formatMS,
   formatPace,
+  planTotalWeeks,
+  planWeekNumber,
   proteinHitRate,
   weeklyRunAgg,
 } from "@gym-planner/core/hyrox";
@@ -39,12 +41,23 @@ import {
   fetchExercises,
   fetchForecasts,
   fetchMetricTargets,
+  fetchPhases,
+  fetchPrograms,
+  fetchReviewData,
   fetchSessionSummaries,
   fetchSetLogsForExercise,
+  fetchWeeklyMuscleCounts,
   sampleMetricCurve,
   todayISO,
 } from "../../../lib/data";
+import { BodyHeatMap } from "../../../components/BodyHeatMap";
+import {
+  LiftsSection,
+  NextWeekSection,
+  WeekReviewSection,
+} from "../../../components/WeekReview";
 import { ConfirmSheet } from "../../../components/ConfirmSheet";
+import { MovementChip } from "../../../components/pictograms/MovementChip";
 import { BarChart } from "../../../components/BarChart";
 import { LineChart, type Series } from "../../../components/LineChart";
 import { NumberStepper } from "../../../components/NumberStepper";
@@ -61,11 +74,40 @@ function ProgressContent() {
 
   const exercises = useQuery(() => fetchExercises(db), []);
   const forecasts = useQuery(() => fetchForecasts(db), []);
+  const review = useQuery(() => fetchReviewData(db), []);
+  const targets = useQuery(() => fetchMetricTargets(db), []);
+
+  // "Week N of M" chip, from the active program's phase span.
+  const programs = useQuery(() => fetchPrograms(db), []);
+  const activeProgram = programs.data?.find((p) => p.status === "active");
+  const phases = useQuery(
+    () =>
+      activeProgram ? fetchPhases(db, activeProgram.id) : Promise.resolve([]),
+    [activeProgram?.id],
+  );
+  let weekLabel: string | null = null;
+  if (activeProgram && phases.data && phases.data.length > 0) {
+    const total = planTotalWeeks(
+      phases.data[0]!.start_date,
+      phases.data[phases.data.length - 1]!.end_date,
+    );
+    const n = Math.min(planWeekNumber(activeProgram.start_date, todayISO()), total);
+    weekLabel = `Week ${n} of ${total}`;
+  }
 
   const [pickedId, setPickedId] = useState<string | null>(
     params.get("exercise"),
   );
   const [showPicker, setShowPicker] = useState(false);
+
+  function openLift(exerciseId: string) {
+    setPickedId(exerciseId);
+    requestAnimationFrame(() => {
+      document
+        .getElementById("lift-progress")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 
   const selected: TExercise | undefined =
     exercises.data?.find((e) => e.id === pickedId) ??
@@ -94,10 +136,32 @@ function ProgressContent() {
         </button>
       </div>
 
+      <WeekReviewSection
+        data={review.data ?? null}
+        targets={targets.data ?? null}
+        weekLabel={weekLabel}
+      />
+
+      <NextWeekSection
+        data={review.data ?? null}
+        targets={targets.data ?? null}
+        forecasts={forecasts.data ?? null}
+        onPickLift={openLift}
+      />
+
+      <WeeklyLoadSection />
+
+      <LiftsSection data={review.data ?? null} onOpen={openLift} />
+
       {/* Exercise progress: forecast vs actual */}
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <CardLabel>Lift progress</CardLabel>
+      <Card id="lift-progress" className="scroll-mt-4 p-4">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-2">
+            {selected && (
+              <MovementChip slug={selected.slug} modality={selected.modality} />
+            )}
+            <CardLabel>Lift progress</CardLabel>
+          </span>
           <Button size="md" onClick={() => setShowPicker(true)}>
             {selected ? selected.name : "Pick exercise"}
           </Button>
@@ -852,6 +916,35 @@ function NutritionSection() {
           logs.refetch();
         }}
       />
+    </Card>
+  );
+}
+
+function WeeklyLoadSection() {
+  const db = useMemo(() => createClient(), []);
+  const counts = useQuery(() => fetchWeeklyMuscleCounts(db), []);
+
+  const total = Object.values(counts.data ?? {}).reduce<number>(
+    (a, v) => a + (v ?? 0),
+    0,
+  );
+
+  return (
+    <Card className="p-4">
+      <div className="flex items-center justify-between">
+        <CardLabel>This week&apos;s load</CardLabel>
+        <span className="text-xs tabular-nums text-faint">
+          {total} set{total === 1 ? "" : "s"}
+        </span>
+      </div>
+      <div className="mt-4">
+        <BodyHeatMap counts={counts.data ?? {}} />
+      </div>
+      <p className="mt-3 text-center text-xs text-faint">
+        {total > 0
+          ? "brighter = more sets this week"
+          : "Log strength sets and the body lights up"}
+      </p>
     </Card>
   );
 }

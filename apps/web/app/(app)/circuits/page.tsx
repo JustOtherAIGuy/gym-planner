@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Copy, Pencil, Play, Plus, Timer, Trash2 } from "lucide-react";
+import { Copy, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import { type TCircuitSpecV1 } from "@gym-planner/core/schemas";
 import { createClient } from "../../../lib/supabase/client";
 import { useQuery } from "../../../lib/useQuery";
@@ -11,6 +11,7 @@ import { Card } from "../../../components/Card";
 import { SkeletonCard } from "../../../components/Skeleton";
 import { CircuitBuilder } from "../../../components/CircuitBuilder";
 import { ConfirmSheet } from "../../../components/ConfirmSheet";
+import { EmptyState } from "../../../components/EmptyState";
 
 type CircuitRow = {
   id: string;
@@ -139,11 +140,12 @@ export default function CircuitsPage() {
           </li>
         ))}
         {circuits.data?.length === 0 && (
-          <li className="flex flex-col items-center gap-3 rounded-card border border-line p-8 text-center">
-            <Timer className="h-8 w-8 text-faint" />
-            <p className="text-sm text-muted">
-              No circuits yet — hit New to build your first one.
-            </p>
+          <li>
+            <EmptyState
+              glyph="kbswing"
+              title="No circuits yet"
+              hint="Hit New to build your first station circuit."
+            />
           </li>
         )}
       </ul>

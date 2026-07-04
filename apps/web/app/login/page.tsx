@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 import { Wordmark } from "../../components/Wordmark";
 import { Button } from "../../components/Button";
+import { ContourLines } from "../../components/PhaseArt";
 
 function LoginForm() {
   const [email, setEmail] = useState("");
@@ -61,6 +62,7 @@ function LoginForm() {
         aria-hidden
         className="pointer-events-none absolute -bottom-56 -right-24 h-80 w-80 rounded-full bg-accent/10 blur-[100px]"
       />
+      <ContourLines className="absolute inset-x-0 bottom-0 h-56 w-full" />
 
       <header className="relative flex flex-col gap-3">
         <Wordmark size="lg" />

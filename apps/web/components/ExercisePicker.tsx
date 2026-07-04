@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Search, X } from "lucide-react";
 import type { TExercise } from "@gym-planner/core/schemas";
+import { MovementChip } from "./pictograms/MovementChip";
 
 export function ExercisePicker({
   exercises,
@@ -61,11 +62,14 @@ export function ExercisePicker({
             <li key={e.id}>
               <button
                 type="button"
-                className="flex w-full items-center justify-between border-b border-line px-5 py-3.5 text-left active:bg-surface-2"
+                className="flex w-full items-center gap-3 border-b border-line px-5 py-3 text-left active:bg-surface-2"
                 onClick={() => onPick(e)}
               >
-                <span className="font-medium">{e.name}</span>
-                <span className="text-xs text-faint">
+                <MovementChip slug={e.slug} modality={e.modality} size="md" />
+                <span className="min-w-0 flex-1 truncate font-medium">
+                  {e.name}
+                </span>
+                <span className="shrink-0 text-xs text-faint">
                   {e.primary_muscle} · {e.equipment}
                 </span>
               </button>

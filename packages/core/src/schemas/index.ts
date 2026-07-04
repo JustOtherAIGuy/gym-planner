@@ -150,6 +150,30 @@ export const ProgramPhase = z.object({
   end_date: DateOnly,
 });
 
+// ─── program_weeks ───────────────────────────────────────────────────────────
+export const WeekFlag = z.enum([
+  "5k_test",
+  "cutback",
+  "half_sim",
+  "dress_rehearsal",
+  "race_week",
+]);
+
+export const ProgramWeek = z.object({
+  id: Uuid,
+  user_id: Uuid,
+  program_id: Uuid,
+  week_index: z.number().int().min(1),
+  // numeric columns can deserialize as strings — Number() at point of use.
+  run_km: z.union([z.number(), z.string()]).nullable(),
+  long_run_km: z.union([z.number(), z.string()]).nullable(),
+  run_focus: z.string().max(280).nullable(),
+  strength_focus: z.string().max(280).nullable(),
+  station_focus: z.string().max(280).nullable(),
+  flags: z.array(WeekFlag).default([]),
+  note: z.string().max(280).nullable(),
+});
+
 // ─── races + race_splits ─────────────────────────────────────────────────────
 export const Race = z.object({
   id: Uuid,
@@ -327,6 +351,8 @@ export type TMetricKey = z.infer<typeof MetricKey>;
 export type TMetricAnchor = z.infer<typeof MetricAnchor>;
 export type TMetricTarget = z.infer<typeof MetricTarget>;
 export type TProgramPhase = z.infer<typeof ProgramPhase>;
+export type TWeekFlag = z.infer<typeof WeekFlag>;
+export type TProgramWeek = z.infer<typeof ProgramWeek>;
 export type TRace = z.infer<typeof Race>;
 export type TRaceSplit = z.infer<typeof RaceSplit>;
 export type TChecklistItem = z.infer<typeof ChecklistItem>;
