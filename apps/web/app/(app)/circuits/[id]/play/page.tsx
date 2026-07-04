@@ -10,6 +10,8 @@ import { useWakeLock } from "../../../../../lib/useWakeLock";
 import { NumberStepper } from "../../../../../components/NumberStepper";
 import { Button } from "../../../../../components/Button";
 import { ConfirmSheet } from "../../../../../components/ConfirmSheet";
+import { MovementChip } from "../../../../../components/pictograms/MovementChip";
+import { WorkoutComplete } from "../../../../../components/WorkoutComplete";
 
 type Phase =
   | { kind: "idle" }
@@ -301,6 +303,7 @@ function ConfirmLog({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
   const router = useRouter();
 
   async function save() {
@@ -346,7 +349,7 @@ function ConfirmLog({
       setSaving(false);
       return;
     }
-    onSaved();
+    setCelebrating(true);
   }
 
   return (
@@ -376,9 +379,16 @@ function ConfirmLog({
       {circuit.spec.stations.map((s) => (
         <label
           key={s.index}
-          className="flex items-center justify-between text-sm"
+          className="flex items-center justify-between gap-2 text-sm"
         >
-          {s.label}
+          <span className="flex min-w-0 items-center gap-2">
+            <MovementChip
+              slug={s.exercise_slug}
+              label={s.label}
+              modality="station"
+            />
+            <span className="truncate">{s.label}</span>
+          </span>
           <NumberStepper
             value={loads[s.index] ?? 0}
             min={0}
@@ -419,6 +429,17 @@ function ConfirmLog({
           confirmLabel="Discard"
           onConfirm={() => router.push("/circuits")}
           onClose={() => setConfirmDiscard(false)}
+        />
+      )}
+
+      {celebrating && (
+        <WorkoutComplete
+          stats={{
+            kind: "circuit",
+            rounds,
+            stations: circuit.spec.stations.length,
+          }}
+          onClose={onSaved}
         />
       )}
     </main>

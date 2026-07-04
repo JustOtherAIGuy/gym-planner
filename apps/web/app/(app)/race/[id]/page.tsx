@@ -19,6 +19,8 @@ import { DurationInput } from "../../../../components/DurationInput";
 import { PageHeader } from "../../../../components/PageHeader";
 import { RaceFormSheet } from "../../../../components/RaceFormSheet";
 import { SkeletonCard } from "../../../../components/Skeleton";
+import { RaceCourseStrip } from "../../../../components/RaceCourseStrip";
+import { MovementChip } from "../../../../components/pictograms/MovementChip";
 
 export default function RaceDetail({
   params,
@@ -146,12 +148,19 @@ export default function RaceDetail({
                   </span>
                 </p>
                 {!entering && (
-                  <Button
-                    className="mt-4 w-full"
-                    onClick={() => setEntering(true)}
-                  >
-                    Edit result
-                  </Button>
+                  <>
+                    {race.race_splits.length > 0 && (
+                      <div className="mt-4">
+                        <RaceCourseStrip splits={race.race_splits} />
+                      </div>
+                    )}
+                    <Button
+                      className="mt-4 w-full"
+                      onClick={() => setEntering(true)}
+                    >
+                      Edit result
+                    </Button>
+                  </>
                 )}
               </>
             ) : !entering ? (
@@ -210,11 +219,16 @@ export default function RaceDetail({
                       }`}
                     >
                       <span
-                        className={`text-xs ${
+                        className={`flex min-w-0 items-center gap-2 text-xs ${
                           leg.kind === "run" ? "text-info" : "text-accent"
                         }`}
                       >
-                        {leg.label}
+                        <MovementChip
+                          kind={leg.cardio_kind}
+                          label={leg.label}
+                          modality={leg.kind === "run" ? "cardio" : "station"}
+                        />
+                        <span className="truncate">{leg.label}</span>
                       </span>
                       <DurationInput
                         valueSec={splits[leg.leg_index]!}

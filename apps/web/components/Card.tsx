@@ -1,14 +1,17 @@
 export function Card({
   glow = false,
   className = "",
+  id,
   children,
 }: {
   glow?: boolean;
   className?: string;
+  id?: string;
   children: React.ReactNode;
 }) {
   return (
     <section
+      id={id}
       className={`rounded-card border border-line bg-surface-1 p-5 ${
         glow ? "shadow-glow-sm" : ""
       } ${className}`}

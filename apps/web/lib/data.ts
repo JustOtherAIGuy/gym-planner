@@ -5,6 +5,7 @@ import {
   weeksBetween,
   type CurveKind,
 } from "@gym-planner/core/forecast";
+import { weekStartWithOffset } from "@gym-planner/core/hyrox";
 import { clearBuffer } from "./sessionBuffer";
 import type {
   TBodyWeightLog,
@@ -22,6 +23,7 @@ import type {
   TProgramDay,
   TProgramExercise,
   TProgramPhase,
+  TProgramWeek,
   TRace,
   TRaceSplit,
   TSetLog,
@@ -45,6 +47,28 @@ export async function fetchPrograms(db: SupabaseClient): Promise<TProgram[]> {
     .order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []) as TProgram[];
+}
+
+/**
+ * Make one program THE active program. Home and Plan follow whichever program
+ * is active, and `.find(status === "active")` silently picks the newest if two
+ * are — so activation is exclusive: archive everything else FIRST, then flip
+ * the target (a mid-failure leaves zero actives, never two).
+ */
+export async function activateProgram(
+  db: SupabaseClient,
+  programId: string,
+): Promise<void> {
+  const { error: e1 } = await db
+    .from("programs")
+    .update({ status: "archived" })
+    .neq("id", programId);
+  if (e1) throw e1;
+  const { error: e2 } = await db
+    .from("programs")
+    .update({ status: "active" })
+    .eq("id", programId);
+  if (e2) throw e2;
 }
 
 export async function fetchProgramDays(
@@ -360,8 +384,12 @@ export async function fetchSessionSummaries(
 export type SessionDetail = {
   session: TWorkoutSession;
   sourceName: string | null;
-  sets: (TSetLog & { exercises: { name: string } })[];
-  cardio: (TCardioLog & { exercises: { name: string } | null })[];
+  sets: (TSetLog & {
+    exercises: { name: string; slug: string; modality: string };
+  })[];
+  cardio: (TCardioLog & {
+    exercises: { name: string; slug: string; modality: string } | null;
+  })[];
   stations: {
     id: string;
     station_index: number;
@@ -400,13 +428,13 @@ export async function fetchSessionDetail(
   const [sets, cardio, stations] = await Promise.all([
     db
       .from("set_logs")
-      .select("*, exercises(name)")
+      .select("*, exercises(name, slug, modality)")
       .eq("session_id", sessionId)
       .order("order_index")
       .order("set_index"),
     db
       .from("cardio_logs")
-      .select("*, exercises(name)")
+      .select("*, exercises(name, slug, modality)")
       .eq("session_id", sessionId)
       .order("order_index")
       .order("set_index"),
@@ -427,6 +455,82 @@ export async function fetchSessionDetail(
     sets: (sets.data ?? []) as SessionDetail["sets"],
     cardio: (cardio.data ?? []) as SessionDetail["cardio"],
     stations: (stations.data ?? []) as SessionDetail["stations"],
+  };
+}
+
+/** Non-warmup sets logged this week, grouped by primary muscle. */
+export async function fetchWeeklyMuscleCounts(
+  db: SupabaseClient,
+): Promise<Partial<Record<string, number>>> {
+  const { data, error } = await db
+    .from("set_logs")
+    .select("is_warmup, exercises(primary_muscle)")
+    .gte("completed_at", startOfWeekISO());
+  if (error) throw error;
+  const counts: Partial<Record<string, number>> = {};
+  for (const row of (data ?? []) as unknown as {
+    is_warmup: boolean;
+    exercises: { primary_muscle: string } | null;
+  }[]) {
+    if (row.is_warmup || !row.exercises) continue;
+    const m = row.exercises.primary_muscle;
+    counts[m] = (counts[m] ?? 0) + 1;
+  }
+  return counts;
+}
+
+// ─── Week review ─────────────────────────────────────────────────────────────
+
+export type ReviewSetRow = TSetLog & {
+  exercises: Pick<TExercise, "id" | "name" | "slug" | "modality"> | null;
+};
+
+export type ReviewData = {
+  sessions: Pick<TWorkoutSession, "started_at" | "ended_at">[];
+  sets: ReviewSetRow[];
+  cardio: TCardioLog[];
+  daily: TDailyLog[];
+  weights: TBodyWeightLog[];
+};
+
+/**
+ * Everything the week-review needs, in one parallel sweep. Fetches a day
+ * wider than `weeks` Mondays back — weekSlice() re-buckets rows exactly,
+ * so over-fetching across the UTC/local boundary is harmless.
+ */
+export async function fetchReviewData(
+  db: SupabaseClient,
+  weeks = 6,
+): Promise<ReviewData> {
+  const monday = weekStartWithOffset(todayISO(), -(weeks - 1));
+  const d = new Date(`${monday}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  const since = d.toISOString();
+  const sinceDate = since.slice(0, 10);
+
+  const [sessions, sets, cardio, daily, weights] = await Promise.all([
+    db
+      .from("workout_sessions")
+      .select("started_at, ended_at")
+      .gte("started_at", since),
+    db
+      .from("set_logs")
+      .select("*, exercises(id, name, slug, modality)")
+      .gte("completed_at", since),
+    db.from("cardio_logs").select("*").gte("logged_at", since),
+    db.from("daily_logs").select("*").gte("logged_at", sinceDate),
+    db.from("body_weight_logs").select("*").gte("logged_at", sinceDate),
+  ]);
+  for (const r of [sessions, sets, cardio, daily, weights]) {
+    if (r.error) throw r.error;
+  }
+
+  return {
+    sessions: (sessions.data ?? []) as ReviewData["sessions"],
+    sets: (sets.data ?? []) as ReviewData["sets"],
+    cardio: (cardio.data ?? []) as TCardioLog[],
+    daily: (daily.data ?? []) as TDailyLog[],
+    weights: (weights.data ?? []) as TBodyWeightLog[],
   };
 }
 
@@ -578,6 +682,67 @@ export async function fetchPhases(
     .order("phase_index");
   if (error) throw error;
   return (data ?? []) as TProgramPhase[];
+}
+
+// ─── HYROX: program weeks ────────────────────────────────────────────────────
+
+export async function fetchProgramWeeks(
+  db: SupabaseClient,
+  programId: string,
+): Promise<TProgramWeek[]> {
+  const { data, error } = await db
+    .from("program_weeks")
+    .select("*")
+    .eq("program_id", programId)
+    .order("week_index");
+  if (error) throw error;
+  return (data ?? []) as TProgramWeek[];
+}
+
+export async function updateProgramWeek(
+  db: SupabaseClient,
+  id: string,
+  patch: Partial<Pick<TProgramWeek, "run_km" | "long_run_km" | "note">>,
+): Promise<void> {
+  const { error } = await db
+    .from("program_weeks")
+    .update(patch)
+    .eq("id", id);
+  if (error) throw error;
+}
+
+/**
+ * Everything planWeekActuals needs, since the program start (minus a day —
+ * over-fetch across the UTC/local boundary; the core helper re-buckets by
+ * local date). Deliberately NOT fetchReviewData: that only reaches 6 Mondays
+ * back and drags sets/daily/weights the ladder doesn't use.
+ */
+export async function fetchPlanActuals(
+  db: SupabaseClient,
+  sinceDateISO: string,
+): Promise<{
+  sessions: Pick<TWorkoutSession, "started_at" | "ended_at">[];
+  cardio: TCardioLog[];
+}> {
+  const d = new Date(`${sinceDateISO}T00:00:00`);
+  d.setDate(d.getDate() - 1);
+  const since = d.toISOString();
+  const [sessions, cardio] = await Promise.all([
+    db
+      .from("workout_sessions")
+      .select("started_at, ended_at")
+      .gte("started_at", since),
+    db.from("cardio_logs").select("*").gte("logged_at", since),
+  ]);
+  if (sessions.error) throw sessions.error;
+  if (cardio.error) throw cardio.error;
+  return {
+    sessions: (sessions.data ?? []) as Pick<
+      TWorkoutSession,
+      "started_at" | "ended_at"
+    >[],
+    cardio: (cardio.data ?? []) as TCardioLog[],
+  };
 }
 
 // ─── HYROX: races ────────────────────────────────────────────────────────────
